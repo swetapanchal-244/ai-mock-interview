@@ -1,8 +1,30 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
+  const [stats, setStats] = useState({ totalInterviews: 0, avgScore: 0, totalQuestions: 0 });
+  const [recentSessions, setRecentSessions] = useState([]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/api/interview/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setStats(res.data);
+        setRecentSessions(res.data.sessions.slice(-5).reverse());
+      } catch (err) {
+        console.log('Stats fetch error:', err);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -23,15 +45,15 @@ function Dashboard() {
 
       <div style={styles.statsRow}>
         <div style={styles.statCard}>
-          <p style={styles.statNum}>0</p>
+          <p style={styles.statNum}>{stats.totalInterviews}</p>
           <p style={styles.statLabel}>Interviews Done</p>
         </div>
         <div style={styles.statCard}>
-          <p style={styles.statNum}>0%</p>
+          <p style={styles.statNum}>{stats.avgScore}%</p>
           <p style={styles.statLabel}>Avg Score</p>
         </div>
         <div style={styles.statCard}>
-          <p style={styles.statNum}>0</p>
+          <p style={styles.statNum}>{stats.totalQuestions}</p>
           <p style={styles.statLabel}>Questions Practiced</p>
         </div>
       </div>
@@ -39,13 +61,12 @@ function Dashboard() {
       <div style={styles.startSection}>
         <h3 style={styles.startTitle}>Start a New Interview</h3>
         <p style={styles.startSub}>Choose a role and practice with AI feedback</p>
-
         <div style={styles.rolesRow}>
           {['Software Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack'].map((role) => (
             <button
               key={role}
               style={styles.roleBtn}
-              onClick={() => navigate('/interview')}
+              onClick={() => navigate('/interview', { state: { role } })}
             >
               {role}
             </button>
@@ -55,9 +76,19 @@ function Dashboard() {
 
       <div style={styles.historySection}>
         <h3 style={styles.historyTitle}>Recent Sessions</h3>
-        <div style={styles.emptyBox}>
-          <p style={{ color: '#aaa' }}>Abhi tak koi interview nahi hua. Upar se start karo!</p>
-        </div>
+        {recentSessions.length === 0 ? (
+          <div style={styles.emptyBox}>
+            <p style={{ color: '#aaa' }}>Abhi tak koi interview nahi hua. Upar se start karo!</p>
+          </div>
+        ) : (
+          recentSessions.map((s, i) => (
+            <div key={i} style={styles.sessionRow}>
+              <span style={styles.sessionRole}>{s.role}</span>
+              <span style={styles.sessionScore}>Score: {s.totalScore}%</span>
+              <span style={styles.sessionDate}>{new Date(s.createdAt).toLocaleDateString()}</span>
+            </div>
+          ))
+        )}
       </div>
 
     </div>
@@ -70,7 +101,7 @@ const styles = {
   welcome: { fontSize: '26px', color: '#1a1a2e', margin: 0 },
   sub: { color: '#888', marginTop: '4px', fontSize: '14px' },
   logoutBtn: { background: 'transparent', border: '1px solid #e94560', color: '#e94560', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '32px' },
   statCard: { background: '#f8f9fa', borderRadius: '12px', padding: '24px', textAlign: 'center' },
   statNum: { fontSize: '32px', fontWeight: 'bold', color: '#e94560', margin: '0 0 8px' },
   statLabel: { fontSize: '13px', color: '#888', margin: 0 },
@@ -81,7 +112,11 @@ const styles = {
   roleBtn: { background: '#1a1a2e', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
   historySection: { background: '#fff', border: '1px solid #eee', borderRadius: '12px', padding: '28px' },
   historyTitle: { fontSize: '18px', color: '#1a1a2e', margin: '0 0 16px' },
-  emptyBox: { textAlign: 'center', padding: '40px', background: '#f8f9fa', borderRadius: '8px' }
+  emptyBox: { textAlign: 'center', padding: '40px', background: '#f8f9fa', borderRadius: '8px' },
+  sessionRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '8px' },
+  sessionRole: { fontWeight: '500', color: '#1a1a2e', fontSize: '14px' },
+  sessionScore: { color: '#e94560', fontWeight: '500', fontSize: '14px' },
+  sessionDate: { color: '#888', fontSize: '13px' },
 };
 
 export default Dashboard;

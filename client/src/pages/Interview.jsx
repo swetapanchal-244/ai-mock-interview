@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 function Interview() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -14,8 +17,16 @@ function Interview() {
   const [started, setStarted] = useState(false);
   const [timer, setTimer] = useState(60);
   const [timerActive, setTimerActive] = useState(false);
+  const [sessionScores, setSessionScores] = useState([]);
 
   const roles = ['Software Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack'];
+
+  // Fix: location.state dependency add ki
+  useEffect(() => {
+    if (location.state?.role) {
+      startInterview(location.state.role);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let interval;
@@ -33,7 +44,7 @@ function Interview() {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(
-        `http://localhost:5000/api/interview/questions/${selectedRole}`,
+        `${API_URL}/api/interview/questions/${selectedRole}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setQuestions(res.data.questions);
@@ -77,7 +88,7 @@ function Interview() {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
-        'http://localhost:5000/api/interview/feedback',
+        `${API_URL}/api/interview/feedback`,
         {
           question: questions[currentIndex].question,
           answer,
@@ -86,13 +97,14 @@ function Interview() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setFeedback(res.data);
+      setSessionScores(prev => [...prev, res.data]);
     } catch (err) {
       alert('Feedback nahi aaya. Dobara try karo.');
     }
     setLoading(false);
   };
 
-  const nextQuestion = () => {
+  const nextQuestion = async () => {
     if (currentIndex + 1 < questions.length) {
       setCurrentIndex(currentIndex + 1);
       setAnswer('');
@@ -100,6 +112,30 @@ function Interview() {
       setTimer(60);
       setTimerActive(true);
     } else {
+      // Fix: feedback null hone par crash nahi hoga
+      const allScores = [...sessionScores, ...(feedback ? [feedback] : [])];
+      if (allScores.length === 0) {
+        navigate('/dashboard');
+        return;
+      }
+      const avgTotal = Math.round(allScores.reduce((s, f) => s + f.score, 0) / allScores.length);
+      const avgClarity = Math.round(allScores.reduce((s, f) => s + f.clarity, 0) / allScores.length);
+      const avgTechnical = Math.round(allScores.reduce((s, f) => s + f.technical, 0) / allScores.length);
+
+      try {
+        const token = localStorage.getItem('token');
+        await axios.post(`${API_URL}/api/interview/save-session`, {
+          role,
+          totalScore: avgTotal,
+          clarity: avgClarity,
+          technical: avgTechnical,
+          questionsCount: allScores.length,
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (err) {
+        console.log('Session save error:', err);
+      }
       navigate('/dashboard');
     }
   };
@@ -230,7 +266,7 @@ const styles = {
   container: { maxWidth: '800px', margin: '0 auto', padding: '32px 20px' },
   title: { fontSize: '28px', color: '#1a1a2e', textAlign: 'center' },
   sub: { color: '#888', textAlign: 'center', marginBottom: '32px' },
-  rolesGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', maxWidth: '500px', margin: '0 auto' },
+  rolesGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', maxWidth: '500px', margin: '0 auto' },
   roleBtn: { background: '#1a1a2e', color: '#fff', border: 'none', padding: '20px', borderRadius: '12px', fontSize: '16px', cursor: 'pointer' },
   topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
   roleTag: { background: '#1a1a2e', color: '#fff', padding: '6px 14px', borderRadius: '20px', fontSize: '13px' },

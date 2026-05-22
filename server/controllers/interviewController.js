@@ -73,3 +73,40 @@ exports.getFeedback = async (req, res) => {
     res.status(500).json({ message: 'AI feedback error', error: err.message });
   }
 };
+
+const Session = require('../models/Session');
+
+exports.saveSession = async (req, res) => {
+  try {
+    const { role, totalScore, clarity, technical, questionsCount } = req.body;
+
+    const session = await Session.create({
+      userId: req.user.id,
+      role,
+      totalScore,
+      clarity,
+      technical,
+      questionsCount,
+    });
+
+    res.status(201).json({ message: 'Session saved', session });
+  } catch (err) {
+    res.status(500).json({ message: 'Session save error', error: err.message });
+  }
+};
+
+exports.getStats = async (req, res) => {
+  try {
+    const sessions = await Session.find({ userId: req.user.id });
+
+    const totalInterviews = sessions.length;
+    const totalQuestions = sessions.reduce((sum, s) => sum + s.questionsCount, 0);
+    const avgScore = totalInterviews > 0
+      ? Math.round(sessions.reduce((sum, s) => sum + s.totalScore, 0) / totalInterviews)
+      : 0;
+
+    res.status(200).json({ totalInterviews, totalQuestions, avgScore, sessions });
+  } catch (err) {
+    res.status(500).json({ message: 'Stats fetch error', error: err.message });
+  }
+};
