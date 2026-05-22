@@ -118,6 +118,10 @@ npm start
 5. Answer is sent to backend → Groq AI evaluates it
 6. Scorecard shows Overall, Clarity, Technical scores + feedback + keywords matched
 
+## Live Demo
+
+🔗 [https://ai-mock-interview-two-gilt.vercel.app](https://ai-mock-interview-two-gilt.vercel.app)
+
 ## Author
 
 **Sweta Panchal**  
